@@ -1,9 +1,12 @@
 package org.november.learning.akka.stream
 
+import java.nio.file.Paths
+
 import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Source
+import akka.stream.{ActorMaterializer, IOResult}
+import akka.stream.scaladsl.{FileIO, Source}
+import akka.util.ByteString
 
 import scala.concurrent.Future
 
@@ -32,7 +35,21 @@ object Main extends  App {
    */
   val done: Future[Done] = source.runForeach(i => println(i))(mat)
 
+  //#Start example #2
+  //There is nothing computed yet, this is a description of what we want to have computed once we run the stream.
+  val factorials = source.scan(BigInt(1))((acc, next) => acc * next)
+
+  /*The elements in the source is access to be converted to ByteStrin using the map function.
+  his stream is then run by attaching a file as the receiver of the data. In the terminology of Akka Streams this
+   is called a Sink. IOResult is a type that IO operations return in Akka Streams in order to tell you how many
+   bytes or elements were consumed and whether the stream terminated normally or exceptionally.
+  */
+  val result: Future[IOResult] =
+    factorials.map(num => ByteString(s"$num\n")).runWith(FileIO.toPath(Paths.get("factorials.txt")))
+  //#End example #2
+
+
   implicit val ec = system.dispatcher
-  done.onComplete(_ => system.terminate())
+  result.onComplete(_ => system.terminate())
 
 }
